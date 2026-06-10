@@ -27,11 +27,18 @@ func main() {
 
 	tokenService := pingoolivekit.NewTokenService(cfg)
 	roomService := pingoolivekit.NewRoomService(cfg)
-	liveKitHandlers := pingoohttp.NewLiveKitHandlers(tokenService, roomService)
+	webhookService := pingoolivekit.NewWebhookService(cfg)
+
+	liveKitHandlers := pingoohttp.NewLiveKitHandlers(
+		tokenService,
+		roomService,
+		webhookService,
+	)
 
 	internalMux.HandleFunc("POST /livekit/token", liveKitHandlers.Token)
 	internalMux.HandleFunc("POST /livekit/rooms/ensure", liveKitHandlers.EnsureRoom)
 	internalMux.HandleFunc("POST /livekit/rooms/end", liveKitHandlers.EndRoom)
+	internalMux.HandleFunc("POST /livekit/session/prepare", liveKitHandlers.PrepareSession)
 
 	internalMux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
 		pingoohttp.WriteJSON(w, http.StatusOK, map[string]string{
@@ -43,6 +50,8 @@ func main() {
 		cfg.PingooInternalSecret,
 		http.StripPrefix("/internal", internalMux),
 	))
+
+	mux.HandleFunc("POST /livekit/webhook", liveKitHandlers.Webhook)
 
 	addr := ":" + cfg.Port
 

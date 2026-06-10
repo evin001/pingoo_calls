@@ -11,6 +11,19 @@ import (
 
 const tokenTTL = 10 * time.Minute
 
+type PrepareSessionRequest struct {
+	CallID    string `json:"call_id"`
+	UserID    string `json:"user_id"`
+	DeviceID  string `json:"device_id"`
+	MediaKind string `json:"media_kind"`
+}
+
+type PrepareSessionResponse struct {
+	LiveKitURL string `json:"livekit_url"`
+	RoomName   string `json:"room_name"`
+	Token      string `json:"token"`
+}
+
 type TokenService struct {
 	cfg *config.Config
 }
