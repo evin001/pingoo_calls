@@ -47,7 +47,7 @@ func NewRoomService(cfg *config.Config) *RoomService {
 }
 
 func (s *RoomService) Ensure(ctx context.Context, req EnsureRoomRequest) (*EnsureRoomResponse, error) {
-	if strings.TrimSpace(req.CallID) == "" {
+	if !validIdentifier(req.CallID) {
 		return nil, fmt.Errorf("call_id is required")
 	}
 
@@ -76,7 +76,7 @@ func (s *RoomService) Ensure(ctx context.Context, req EnsureRoomRequest) (*Ensur
 }
 
 func (s *RoomService) End(ctx context.Context, req EndRoomRequest) (*EndRoomResponse, error) {
-	if strings.TrimSpace(req.CallID) == "" {
+	if !validIdentifier(req.CallID) {
 		return nil, fmt.Errorf("call_id is required")
 	}
 

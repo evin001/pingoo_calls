@@ -11,19 +11,6 @@ import (
 
 const tokenTTL = 10 * time.Minute
 
-type PrepareSessionRequest struct {
-	CallID    string `json:"call_id"`
-	UserID    string `json:"user_id"`
-	DeviceID  string `json:"device_id"`
-	MediaKind string `json:"media_kind"`
-}
-
-type PrepareSessionResponse struct {
-	LiveKitURL string `json:"livekit_url"`
-	RoomName   string `json:"room_name"`
-	Token      string `json:"token"`
-}
-
 type TokenService struct {
 	cfg *config.Config
 }
@@ -48,15 +35,15 @@ func NewTokenService(cfg *config.Config) *TokenService {
 }
 
 func (s *TokenService) Generate(req TokenRequest) (*TokenResponse, error) {
-	if strings.TrimSpace(req.CallID) == "" {
+	if !validIdentifier(req.CallID) {
 		return nil, fmt.Errorf("call_id is required")
 	}
 
-	if strings.TrimSpace(req.UserID) == "" {
+	if !validIdentifier(req.UserID) {
 		return nil, fmt.Errorf("user_id is required")
 	}
 
-	if strings.TrimSpace(req.DeviceID) == "" {
+	if !validIdentifier(req.DeviceID) {
 		return nil, fmt.Errorf("device_id is required")
 	}
 
@@ -96,8 +83,18 @@ func (s *TokenService) Generate(req TokenRequest) (*TokenResponse, error) {
 	}
 
 	return &TokenResponse{
-		LiveKitURL: s.cfg.LiveKitURL,
+		LiveKitURL: s.cfg.LiveKitPublicURL,
 		RoomName:   roomName,
 		Token:      token,
 	}, nil
+}
+
+func validIdentifier(value string) bool {
+	if strings.TrimSpace(value) == "" {
+		return false
+	}
+
+	return !strings.ContainsFunc(value, func(r rune) bool {
+		return r <= 0x20 || r == ':' || r == '/'
+	})
 }

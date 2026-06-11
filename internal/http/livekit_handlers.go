@@ -1,9 +1,11 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	nethttp "net/http"
+	"time"
 
 	pingoolivekit "pingoo_calls/internal/livekit"
 )
@@ -36,6 +38,14 @@ func (h *LiveKitHandlers) Token(w nethttp.ResponseWriter, r *nethttp.Request) {
 
 	resp, err := h.tokenService.Generate(req)
 	if err != nil {
+		log.Printf(
+			"livekit token failed: call_id=%s user_id=%s device_id=%s media_kind=%s error=%v",
+			req.CallID,
+			req.UserID,
+			req.DeviceID,
+			req.MediaKind,
+			err,
+		)
 		WriteError(w, nethttp.StatusBadRequest, err.Error())
 		return
 	}
@@ -53,6 +63,7 @@ func (h *LiveKitHandlers) EnsureRoom(w nethttp.ResponseWriter, r *nethttp.Reques
 
 	resp, err := h.roomService.Ensure(r.Context(), req)
 	if err != nil {
+		log.Printf("livekit ensure room failed: call_id=%s error=%v", req.CallID, err)
 		WriteError(w, nethttp.StatusBadGateway, err.Error())
 		return
 	}
@@ -70,45 +81,12 @@ func (h *LiveKitHandlers) EndRoom(w nethttp.ResponseWriter, r *nethttp.Request) 
 
 	resp, err := h.roomService.End(r.Context(), req)
 	if err != nil {
+		log.Printf("livekit end room failed: call_id=%s error=%v", req.CallID, err)
 		WriteError(w, nethttp.StatusBadGateway, err.Error())
 		return
 	}
 
 	WriteJSON(w, nethttp.StatusOK, resp)
-}
-
-func (h *LiveKitHandlers) PrepareSession(w nethttp.ResponseWriter, r *nethttp.Request) {
-	var req pingoolivekit.PrepareSessionRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, nethttp.StatusBadRequest, "invalid json body")
-		return
-	}
-
-	ensureResp, err := h.roomService.Ensure(r.Context(), pingoolivekit.EnsureRoomRequest{
-		CallID: req.CallID,
-	})
-	if err != nil {
-		WriteError(w, nethttp.StatusBadGateway, err.Error())
-		return
-	}
-
-	tokenResp, err := h.tokenService.Generate(pingoolivekit.TokenRequest{
-		CallID:    req.CallID,
-		UserID:    req.UserID,
-		DeviceID:  req.DeviceID,
-		MediaKind: req.MediaKind,
-	})
-	if err != nil {
-		WriteError(w, nethttp.StatusBadRequest, err.Error())
-		return
-	}
-
-	WriteJSON(w, nethttp.StatusOK, pingoolivekit.PrepareSessionResponse{
-		LiveKitURL: tokenResp.LiveKitURL,
-		RoomName:   ensureResp.RoomName,
-		Token:      tokenResp.Token,
-	})
 }
 
 func (h *LiveKitHandlers) Webhook(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -125,7 +103,20 @@ func (h *LiveKitHandlers) Webhook(w nethttp.ResponseWriter, r *nethttp.Request) 
 		event.Participant,
 	)
 
+	forwardCtx, forwardCancel := contextWithTimeout(r, 5*time.Second)
+	defer forwardCancel()
+
+	if err := h.webhookService.Forward(forwardCtx, event); err != nil {
+		log.Printf("failed to forward livekit webhook: %v", err)
+		WriteError(w, nethttp.StatusBadGateway, err.Error())
+		return
+	}
+
 	WriteJSON(w, nethttp.StatusOK, map[string]string{
 		"status": "received",
 	})
+}
+
+func contextWithTimeout(r *nethttp.Request, timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(r.Context(), timeout)
 }

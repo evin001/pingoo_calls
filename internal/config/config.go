@@ -11,6 +11,7 @@ type Config struct {
 	Port string
 
 	LiveKitURL       string
+	LiveKitPublicURL string
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
 
@@ -21,7 +22,7 @@ type Config struct {
 func Load() (*Config, error) {
 	env := getEnv("APP_ENV", "dev")
 	envFile := ".env." + env
-	_ = godotenv.Load(env)
+	_ = godotenv.Load(".env")
 
 	if err := godotenv.Load(envFile); err == nil {
 		fmt.Printf("loaded env file: %s\n", envFile)
@@ -31,6 +32,7 @@ func Load() (*Config, error) {
 		Port: getEnv("PORT", "8081"),
 
 		LiveKitURL:       os.Getenv("LIVEKIT_URL"),
+		LiveKitPublicURL: getEnv("LIVEKIT_PUBLIC_URL", os.Getenv("LIVEKIT_URL")),
 		LiveKitAPIKey:    os.Getenv("LIVEKIT_API_KEY"),
 		LiveKitAPISecret: os.Getenv("LIVEKIT_API_SECRET"),
 
@@ -40,6 +42,10 @@ func Load() (*Config, error) {
 
 	if cfg.LiveKitURL == "" {
 		return nil, fmt.Errorf("LIVEKIT_URL is required")
+	}
+
+	if cfg.LiveKitPublicURL == "" {
+		return nil, fmt.Errorf("LIVEKIT_PUBLIC_URL is required")
 	}
 
 	if cfg.LiveKitAPIKey == "" {
@@ -52,6 +58,10 @@ func Load() (*Config, error) {
 
 	if cfg.PingooInternalSecret == "" {
 		return nil, fmt.Errorf("PINGOO_INTERNAL_SECRET is required")
+	}
+
+	if cfg.PingooServerInternalURL == "" {
+		return nil, fmt.Errorf("PINGOO_SERVER_INTERNAL_URL is required")
 	}
 
 	return cfg, nil

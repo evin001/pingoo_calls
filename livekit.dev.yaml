@@ -1,0 +1,10 @@
+bind_addresses:
+  - 0.0.0.0
+
+keys:
+  devkey: secret
+
+webhook:
+  api_key: devkey
+  urls:
+    - http://localhost:8081/livekit/webhook
