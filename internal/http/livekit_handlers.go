@@ -92,6 +92,7 @@ func (h *LiveKitHandlers) EndRoom(w nethttp.ResponseWriter, r *nethttp.Request) 
 func (h *LiveKitHandlers) Webhook(w nethttp.ResponseWriter, r *nethttp.Request) {
 	event, err := h.webhookService.Receive(r)
 	if err != nil {
+		log.Printf("livekit webhook rejected: remote_addr=%s error=%v", r.RemoteAddr, err)
 		WriteError(w, nethttp.StatusUnauthorized, err.Error())
 		return
 	}
@@ -103,14 +104,40 @@ func (h *LiveKitHandlers) Webhook(w nethttp.ResponseWriter, r *nethttp.Request) 
 		event.Participant,
 	)
 
+	if event.Ignored {
+		log.Printf(
+			"livekit webhook ignored: event=%s room=%s participant=%s",
+			event.Event,
+			event.RoomName,
+			event.Participant,
+		)
+		WriteJSON(w, nethttp.StatusOK, map[string]string{
+			"status": "ignored",
+		})
+		return
+	}
+
 	forwardCtx, forwardCancel := contextWithTimeout(r, 5*time.Second)
 	defer forwardCancel()
 
 	if err := h.webhookService.Forward(forwardCtx, event); err != nil {
-		log.Printf("failed to forward livekit webhook: %v", err)
+		log.Printf(
+			"failed to forward livekit webhook: event=%s room=%s participant=%s error=%v",
+			event.Event,
+			event.RoomName,
+			event.Participant,
+			err,
+		)
 		WriteError(w, nethttp.StatusBadGateway, err.Error())
 		return
 	}
+
+	log.Printf(
+		"livekit webhook handled: event=%s room=%s participant=%s",
+		event.Event,
+		event.RoomName,
+		event.Participant,
+	)
 
 	WriteJSON(w, nethttp.StatusOK, map[string]string{
 		"status": "received",

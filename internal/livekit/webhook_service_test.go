@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	lkproto "github.com/livekit/protocol/livekit"
 	"pingoo_calls/internal/config"
 )
 
@@ -69,5 +70,33 @@ func TestWebhookServiceForwardFailsOnNon2xx(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("Forward returned nil error")
+	}
+}
+
+func TestNormalizeWebhookEventMarksUnsupportedEventsIgnored(t *testing.T) {
+	event := normalizeWebhookEvent(&lkproto.WebhookEvent{
+		Event: "track_published",
+		Room: &lkproto.Room{
+			Name: "call_123",
+		},
+		Participant: &lkproto.ParticipantInfo{
+			Identity: "user:1:device:ios",
+		},
+	})
+
+	if event == nil {
+		t.Fatal("normalizeWebhookEvent returned nil")
+	}
+	if !event.Ignored {
+		t.Fatal("Ignored is false")
+	}
+	if event.Event != "track_published" {
+		t.Fatalf("Event = %q", event.Event)
+	}
+	if event.RoomName != "call_123" {
+		t.Fatalf("RoomName = %q", event.RoomName)
+	}
+	if event.Participant != "user:1:device:ios" {
+		t.Fatalf("Participant = %q", event.Participant)
 	}
 }
